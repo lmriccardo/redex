@@ -6,6 +6,7 @@ from redex.utils.constants import *
 from redex.utils.session import Session, ContainerDatas
 from redex.data.container import DEFAULT_CONTAINER_DATA
 from redex.utils.command import RedexCommands
+from redex.data.exploit import ExploitHandler
 
 
 class RemoteDockerExecution(object):
@@ -16,12 +17,15 @@ class RemoteDockerExecution(object):
         self.console = Console(color_system="truecolor")
         self.welcome_msg()
 
-        # Initialize a number of variables used for the current session
-        self.session = Session()
-        self.session.s_names.append(self.session.s_name)
-
         # Initialize a default container data dictionary using the default one
         self.container_data = ContainerDatas(DEFAULT_CONTAINER_DATA)
+
+        # Initialized the Exploit handler
+        self.exploit_hdl = ExploitHandler()
+
+        # Initialize a number of variables used for the current session
+        self.session = Session(s_exploits=self.exploit_hdl)
+        self.session.s_names.append(self.session.s_name)
 
         self.exec_created = False
         self.command_types = {
@@ -29,7 +33,7 @@ class RemoteDockerExecution(object):
             "upload" : 'echo {:s} | base64 -d >> file{:s}'
         }
 
-        self.printable_exploit = "/" + "/".join(self.session.s_exploit.split("/")[-2:])
+        self.printable_exploit = self.session.s_exploit.lower()
 
         # Take all the commands
         self.commands = RedexCommands()
@@ -83,7 +87,7 @@ class RemoteDockerExecution(object):
                 if self.session.s_rhost != "0.0.0.0":
                     s_command = self.session.s_command
                     command = s_command if s_command in self.command_types  else "custom"
-                    msg = f"([blue]{command}[/blue]:[red]{self.printable_exploit}[/red])"
+                    msg = f"([blue]{command}[/blue]:[yellow]{self.printable_exploit}[/yellow])"
                 else:
                     msg = ""
 
@@ -98,7 +102,7 @@ class RemoteDockerExecution(object):
                     command_args = self.merge_args(splitted_cmd[1:])
                     self.commands[command_name](self, *command_args)
                     continue
-                
+
                 self.commands[command_name](self)
             
             except KeyboardInterrupt: self.commands['quit'](self)

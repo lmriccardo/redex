@@ -3,7 +3,7 @@ import socket
 import rich
 import json
 
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 
 def send_request_listimages(rhost: str, rport: int) -> requests.Response:
@@ -330,3 +330,145 @@ def send_request_list_containers(rhost: str, rport: int, data: Dict[str, Any]) -
         raise Exception
     
     return response
+
+
+def send_request_remove_containers(rhost: str, rport: int, names: List[str]) -> None:
+    """
+    Send a HTTP DEL request over a TCP connection towards a remote host
+    via the give input port, to remove a number of containers.
+
+    References
+    ----------
+    Docker Engine API Documentation Version 1.42
+    https://docs.docker.com/engine/api/v1.42/#tag/Container/operation/ContainerDelete
+
+    Parameters
+    ----------
+    rhost : str
+        The IP of the remote host
+    rport : int
+        The port via which the connection occurs
+    names : List[str]
+        The name of all the containers to remove
+    """
+    addr = f"{rhost}:{rport}"
+    console = rich.console.Console(color_system="truecolor")
+
+    for name in names:
+        response = requests.delete(f"http://{addr}/containers/{name}?v=true&force=true")
+        if response.status_code != 204:
+            console.print(f"[*] [red]Error: {response.json()['message']}[/red]")
+            raise Exception
+        
+        console.print(f"[*] [green]Removed container {name}[/green]")
+
+
+def send_request_inspect_containers(rhost: str, rport: int, names: List[str]) -> None:
+    """
+    Send a HTTP DEL request over a TCP connection towards a remote host
+    via the give input port, to inspect a number of containers.
+
+    References
+    ----------
+    Docker Engine API Documentation Version 1.42
+    https://docs.docker.com/engine/api/v1.42/#tag/Container/operation/ContainerInspect
+
+    Parameters
+    ----------
+    rhost : str
+        The IP of the remote host
+    rport : int
+        The port via which the connection occurs
+    names : List[str]
+        The name of all the containers to inspects
+    """
+    addr = f"{rhost}:{rport}"
+    console = rich.console.Console(color_system="truecolor")
+
+    for name in names:
+        response = requests.get(f"http://{addr}/containers/{name}/json")
+        if response.status_code != 200:
+            console.print(f"[*] [red]Error: {response.json()['message']}[/red]")
+            raise Exception
+        
+        console.print(response.json())
+
+
+def send_request_create_exec(
+    rhost: str, rport: int, exec_data: Dict[str, Any], container_name: str
+) -> int | str:
+    """
+    Send a HTTP POST request over an TCP connection with a remote host
+    via the given input port number, to create an execution istance
+    for a running container identified with the input container name.
+
+    References
+    ----------
+    Docker Engine API Documentation Version 1.42
+    https://docs.docker.com/engine/api/v1.42/#tag/Exec/operation/ContainerExec
+
+    Parameters
+    ----------
+    rhost : str
+        The IP of the remote host
+    rport : int
+        The port via which the connection occurs
+    exec_data : Dict[str, Any]
+        The JSON Payload to send through the request
+    container_name : str
+        The name of the running container that will execute the instance
+
+    Returns
+    -------
+    int | str
+        The ID of the newly created exec instance.
+    """
+    addr = f"{rhost}:{rport}"
+    console = rich.console.Console(color_system="truecolor")
+
+    response = requests.post(
+        f"http://{addr}/containers/{container_name}/exec", json=exec_data
+    )
+    if response.status_code != 201:
+        console.print(f"[*] [red]Error: {response.json()['message']}[/red]")
+        raise Exception
+
+    exec_id = response.json()["Id"]
+    return exec_id
+
+
+def send_request_start_exec(
+    rhost: str, rport: int, exec_id: str | int, exec_start_data: Dict[str, Any]
+) -> None:
+    """
+    Send a HTTP POST request on a TCP connection towards a remote host
+    via the give input port, to start the execution instance previously created.
+
+    Refereces
+    ---------
+    Docker Engine API Documentation Version 1.42
+    https://docs.docker.com/engine/api/v1.42/#tag/Exec/operation/ExecStart
+
+    Parameters
+    ----------
+    rhost : str
+        The IP of the remote host
+    rport : int
+        The port via which the connection occurs
+    exec_id : str | int
+        The ID of the execution instance previously created
+    exec_start_data : Dict[str, Any]
+        The JSON Payload to sent along with the request
+    """
+    addr = f"{rhost}:{rport}"
+    console = rich.console.Console(color_system="truecolor")
+
+    response = requests.post(
+        f"http://{addr}/exec/{exec_id}/start", json=exec_start_data["exec_start"]
+    )
+    if response.status_code != 200:
+        console.print(f"[*] [red]Error: {response.text}[/red]")
+        raise Exception
+
+    console.print("[*] [green]Result[/green]")
+    console.print(response.text)

@@ -20,6 +20,8 @@ INFO = """
 
 BUGS = []
 
+CMD_TYPES = [ "rvshell", "upload" ]
+
 ## ------------------------------ DOCUMENTATION COMMANDS CONTSANTS ------------------------------
 C_HELP_NAME = "help"
 C_HELP_CMD  = "help [COMMAND1 ...]"
@@ -116,5 +118,52 @@ C_LSTCONTS_DESC = """List some or all containers in a remote host.
             + [italic]paused[/italic]
             + [italic]exited[/italic]
             + [italic]dead[/italic]
+"""
+# ------------------------------------------------------------
+C_REMOVE_NAME = "remove"
+C_REMOVE_CMD  = "remove [names=[NAME1,...]]"
+C_REMOVE_DESC = """Remove given containers. If no input is provided removed
+    it will remove the one identified by the value of the session variable 'NAME'.
+    To see the content of the variable just type 'show name'
+"""
+# ------------------------------------------------------------
+C_INSPECT_NAME = "inspect"
+C_INSPECT_CMD  = "inspect [name=[NAME,...]]"
+C_INSPECT_DESC = """Inspect specified containers. If no input is provided
+    it will inspect the one identified by the value of the session variable 'NAME'.
+    To see the content of the variable just type 'show name'
+"""
+# ------------------------------------------------------------
+C_UPLOAD_NAME = "upload"
+C_UPLOAD_CMD  = "upload [NAME] [FILE,...]"
+C_UPLOAD_DESC = """Upload one or more file inside a container. If not provided, the
+    name of the container will be the one identified by the 'NAME' variable. To see
+    the content of the variable just type 'show name'. If not provided, the only
+    uploaded file will be the one identified by the session variable 'EXPLOIT'. To
+    see the content of the variable just type 'show exploit'. Moreover, to see all
+    the possible exploits type 'show exploits'.
+"""
+# ------------------------------------------------------------
+C_USE_NAME = "use"
+C_USE_CMD  = "use [exploit=[FILE|EXPLOIT_NAME]]"
+C_USE_DESC = """Select which file/exploit to use for Uploading or other things.
+    You can see the list of all available exploit by typing 'show exploits'.
+    It is also possible to add new custom exploits by using the 'addexploit' command.
+"""
+# ------------------------------------------------------------
+C_ADDEXPLOIT_NAME = "addexploit"
+C_ADDEXPLOIT_CMD  = "addexploit NAME FILE"
+C_ADDEXPLOIT_DESC = "Add a new exploit to the current session. To use it see 'use' command"
+# ------------------------------------------------------------
+C_SHOWCMD_NAME = "showcmd"
+C_SHOWCMD_CMD  = "showcmd"
+C_SHOWCMD_DESC = "Show all the command names. To see more about type 'help cmdname'"
+# ------------------------------------------------------------
+C_EXECUTE_NAME = "execute"
+C_EXECUTE_CMD  = "execute [COMMAND=COMMAND]"
+C_EXECUTE_DESC = """Execute a command inside a running container. Default commands are:
+    - 'revshell' (to establish a reverse shell connection)
+    - 'upload' (to upload every kind of file)
+    However, you can also give whatever command you want.
 """
 # ------------------------------------------------------------
