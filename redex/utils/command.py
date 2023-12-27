@@ -13,7 +13,7 @@ from redex.network.docker import *
 from redex.data.exploit import Exploit
 
 
-@dataclass
+@dataclass(frozen=True)
 class Command(object):
     """**Command Data Class**
 
