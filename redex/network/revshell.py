@@ -59,7 +59,8 @@ class ReverseShellHandler(object):
 
             # Make the request to the docker daemon to start a new container
             response = requests.post(
-                f"http://{addr}/exec/{exec_id}/start", json=exec_start)
+                f"http://{addr}/exec/{exec_id}/start", json=exec_start
+            )
         except KeyboardInterrupt: ...
 
         self.console.print("[*] Connection Closing ... ", style="yellow")

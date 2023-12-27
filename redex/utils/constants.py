@@ -135,7 +135,7 @@ C_INSPECT_DESC = """Inspect specified containers. If no input is provided
 """
 # ------------------------------------------------------------
 C_UPLOAD_NAME = "upload"
-C_UPLOAD_CMD  = "upload [NAME] [FILE,...]"
+C_UPLOAD_CMD  = "upload [FILE,...]"
 C_UPLOAD_DESC = """Upload one or more file inside a container. If not provided, the
     name of the container will be the one identified by the 'NAME' variable. To see
     the content of the variable just type 'show name'. If not provided, the only
@@ -145,10 +145,11 @@ C_UPLOAD_DESC = """Upload one or more file inside a container. If not provided, 
 """
 # ------------------------------------------------------------
 C_USE_NAME = "use"
-C_USE_CMD  = "use [exploit=[FILE|EXPLOIT_NAME]]"
-C_USE_DESC = """Select which file/exploit to use for Uploading or other things.
+C_USE_CMD  = "use EXPLOIT_NAME"
+C_USE_DESC = """Select which exploit to use for Uploading or other things.
     You can see the list of all available exploit by typing 'show exploits'.
     It is also possible to add new custom exploits by using the 'addexploit' command.
+    Notice that the explot must first be added to the session.
 """
 # ------------------------------------------------------------
 C_ADDEXPLOIT_NAME = "addexploit"

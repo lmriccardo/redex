@@ -18,8 +18,8 @@ class Threading(object):
     
     @staticmethod
     def run_single_thread(
-        function: Callable, daemon: bool=True, *args
+        function: Callable, args: List[Any], daemon: bool=True
     ) -> threading.Thread:
-        t = threading.Thread(target=function, args=args, daemon=daemon)
+        t = threading.Thread(target=function, args=[args], daemon=daemon)
         t.start()
         return t

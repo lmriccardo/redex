@@ -9,7 +9,7 @@ class Session(object):
     s_name         : str            = "container"
     s_names        : list           = field(default_factory=list)
     s_image        : str            = "ubuntu:latest"
-    s_lhost        : str            = "0.0.0.0"
+    s_lhost        : str            = "192.168.1.140" # 0.0.0.0
     s_lport        : str            = 4444
     s_privileged   : bool           = True
     s_autoremove   : bool           = True

