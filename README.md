@@ -2,7 +2,7 @@
 
 > **WARNING**: EDUCATION PURPOSE ONLY
 
-<video width="200" height="100" src="https://github.com/lmriccardo/redex/assets/32601287/3cf6e63a-5118-4697-b780-f845b709b9ae"></video>
+<img width="200" height="100" src="https://github.com/lmriccardo/redex/assets/32601287/3cf6e63a-5118-4697-b780-f845b709b9ae">
 
 **ReDEx** is tool that can remotely execute Docker commands via the Docker API on a remote host, which Docker Daemon has been exposed on (unsafe) TCP connections. Using actual HTTP (post, get, delete) requests it is possible to create, start, stop, inspect and list containers and images, and so on. However, all of these operations can also be used with malicious intent, in order to exploit the fact that the Daemon is exposed, creating privileged containers and performing so-called *Docker Breakout* techniques and *privilege escalation* on the host machine. 
 
