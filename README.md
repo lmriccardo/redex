@@ -12,7 +12,7 @@ Honestly, I am sceptical that some of these techniques works nowdays, at least I
 
 *Thank you, and I wish you the best of Hack* !!!
 
-## How much is secure Docker?
+## How much is Docker secure?
 
 When it comes to security, Docker by itself is a safe place to run potentially vulnerable applications, given the fact that all containers are isolated from each others and from the host system. However, Docker is a powerfull tool, and it provides to the user the capability to do everything he want either being safe or not. For example, we can *share* any portion of the host filesystem with the container using volumes or bind mounts. This means that it is possible to mount the entire host filesystem on the container just running `docker run -v /:/path`. Now, inside the container it is possible to alter the mounted filesystem without any restriction, but in particular it bypasses the namespace isolation, leaking a lot of information that an attacker can use to carry out an attack. This is only one example of bad practice. Moreover, also starting container with root capabilities is not suggested. Assuming that a malicious entity has gained access to the container, he can easily install every tool he wants and perform malicious action against the host machine. 
 
@@ -51,3 +51,7 @@ Then, inside the ReDEx CLI it is possible to run it using:
 ```
 
 What this simple script does is very simple. First it sets some session variables, using the `set` command. In particular it sets the RHOST (remote host, or victim machine that is running Docker), the LHOST (local host IP address), LPORT (local port) and NAME (the name of the container that will be created). Then, it performs a scan to look for open ports in the RHOST, using the `scan` command. The next command, `create`, will create a fully-privileged container in the remote host named with the content of the variable `NAME` that we have previously configured. `lstconts` will just show all the running containers. Then, the `start` command will start the container and `upload` will upload the currently selected exploit into the remote container. Finally, the `execute` command will run, in this case, the *reverse shell handler* on the local host and the connection from the container. Once we have the CLI inside the container, it is possible to run the uploaded exploit and escape from the container, reaching the host system with root privileges.
+
+## Do You Liked It?
+
+If you like this tool, please leave a star or fork the repo!! I will appreciate it.
