@@ -528,7 +528,7 @@ def upload_cmd(redex_cls, *args, **kwargs) -> None:
 
         exploit_object = getattr(redex_cls.exploit_hdl, exploit.lower())
         exploit_file = exploit_object.path
-        exploit_ext = exploit_object.ext
+        exploit_ext = exploit_object.extension
     
     except AttributeError:
         exploit_file = exploit.split("/")[-1]
