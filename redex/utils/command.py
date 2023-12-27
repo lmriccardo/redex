@@ -1,9 +1,10 @@
 import json
 import rich
 import base64
+import re
 
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Callable, Optional, List, Tuple
 from pathlib import Path
 
 from redex.network.portscan import PortScanner
@@ -42,6 +43,91 @@ class Command(object):
     
     def __call__(self, redex_cls, *args, **kwargs) -> None:
         self.func(redex_cls, *args, **kwargs)
+
+
+def merge_args(command_args: List[str]) -> List[str]:
+    """ Reorganize the command arguments given along with the command  """
+    outputs, old_string = [], ""
+
+    for element in command_args:
+        # If the element is an assignment command then, it checks if 
+        # the string has been initialized or not. If it has been 
+        # initialized with a previous element, then insert in the output
+        # list the current content of the string, otherwise just
+        # initialize the string with the contento of the current element.
+        # If the command is not an assignment, then just place the element
+        # in the string for a later use.
+        if "=" in element:
+            if old_string != "":
+                outputs.append(old_string.strip())
+
+            old_string = element
+            continue
+    
+        old_string += " " + element
+    
+    outputs.append(old_string.strip())
+    return outputs
+
+
+class SequentialCommandExecuter(object):
+    def __init__(self, commands_list: List[Tuple[Command, str]]) -> None:
+        self.commands = commands_list
+    
+    @staticmethod
+    def read_script(redex_cls, filepath: Path) -> 'SequentialCommandExecuter':
+        # Let's check that the file actual exists
+        if not filepath.exists():
+            redex_cls.console.print(
+                f"[*] [red]Input script: {filepath} does not exists[/red]"
+            )
+            raise Exception
+        
+        script_commands = []
+        fd = open(filepath, mode='r')
+
+        # Get the content of the file and start building the list
+        content = fd.readlines()
+        comment_regex = re.compile('\s*%.*')
+
+        for command_line in content:
+            command_line = command_line[:-1] if command_line[-1] == '\n' else command_line
+            
+            # Check if the command is a comment or not and if the
+            # current line is empty or not. In this case we do not
+            # need to do anything and we can step to the next line
+            if re.fullmatch(comment_regex, command_line[:-1]) or not command_line:
+                continue
+
+            # Take the name of the command and all the arguments
+            command_line_splitted = command_line.split()
+            command_name = command_line_splitted[0]
+            raw_arguments = command_line_splitted[1:]
+
+            # Check if the command actually exists or not
+            if not hasattr(redex_cls.commands, command_name.upper()):
+                redex_cls.console.print(
+                    f"[*] [red]Command name: {command_name} does not exists[/red]"
+                )
+
+            command_arguments = [redex_cls] + merge_args(raw_arguments)
+            command_object = getattr(redex_cls.commands, command_name.upper())
+            script_commands.append((command_object, command_arguments))
+
+
+        fd.flush()
+        fd.close()
+
+        return SequentialCommandExecuter(script_commands)
+
+    def run(self) -> None:
+        for command_obj, command_args in self.commands:
+            redex_cls, command_args = command_args[0], command_args[1:]
+
+            # Check if the given command requires arguments or not
+            if command_args[0] == '': command_obj(redex_cls); continue
+            command_obj(redex_cls, *command_args)
+
 
 ## ------------------------- HELP COMMAND ------------------------
 def help_cmd(redex_cls, *args, **kwargs) -> None:
@@ -521,6 +607,32 @@ def showcmd_cmd(redex_cls, *args, **kwargs) -> None:
 C_SHOWCMD = Command(C_SHOWCMD_NAME, C_SHOWCMD_CMD, C_SHOWCMD_DESC, func=showcmd_cmd)
 showcmd_cmd.__doc__ = C_SHOWCMD.desc
 
+## ------------------------- LOAD COMMAND ------------------------
+def load_cmd(redex_cls, *args, **kwargs) -> None:
+    filepath = Path(args[0])
+    script_executor = SequentialCommandExecuter.read_script(redex_cls, filepath)
+    setattr(redex_cls, 'script_executor', script_executor)
+
+
+C_LOAD = Command(C_LOAD_NAME, C_LOAD_CMD, C_LOAD_DESC, func=load_cmd)
+load_cmd.__doc__ = C_LOAD.desc
+
+## ------------------------- RUN COMMAND ------------------------
+def run_cmd(redex_cls, *args, **kwargs) -> None:
+    script_executor = getattr(redex_cls, 'script_executor')
+
+    # Check if a script has been loaded previously
+    if script_executor is None:
+        redex_cls.console.print("[*] [red]No script has been loaded yet[/red]")
+        raise Exception
+    
+    # Runs the script
+    script_executor.run()
+
+
+C_RUN = Command(C_RUN_NAME, C_RUN_CMD, C_RUN_DESC, func=run_cmd)
+run_cmd.__doc__ = C_RUN.desc
+
 
 @dataclass(frozen=True)
 class RedexCommands(object):
@@ -545,6 +657,8 @@ class RedexCommands(object):
     ADDEXPLOIT : Command = C_ADDEXPLOIT
     SHOWCMD    : Command = C_SHOWCMD
     EXECUTE    : Command = C_EXECUTE
+    LOAD       : Command = C_LOAD
+    RUN        : Command = C_RUN
 
     def __getitem__(self, key: str) -> Command:
         """ Returns the corresponding command """

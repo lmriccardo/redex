@@ -1,11 +1,10 @@
 from rich.console import Console
 from rich.prompt import Prompt
-from typing import List
 
 from redex.utils.constants import *
 from redex.utils.session import Session, ContainerDatas
 from redex.data.container import DEFAULT_CONTAINER_DATA
-from redex.utils.command import RedexCommands
+from redex.utils.command import RedexCommands, merge_args
 from redex.data.exploit import ExploitHandler
 
 
@@ -37,6 +36,10 @@ class RemoteDockerExecution(object):
 
         # Take all the commands
         self.commands = RedexCommands()
+
+        # Setup the script executor to None. It will be filled
+        # only by using the load command
+        self.script_executor = None
     
     def welcome_msg(self) -> None:
         self.console.clear()
@@ -50,31 +53,6 @@ class RemoteDockerExecution(object):
             self.console.print(
                 "Bugs that needs to be fixed:\n" + "".join(BUGS) + "\n\n"
             )
-
-    @staticmethod
-    def merge_args(command_args: List[str]) -> List[str]:
-        """ Reorganize the command arguments given along with the command  """
-        outputs, old_string = [], ""
-
-        for element in command_args:
-            # If the element is an assignment command then, it checks if 
-            # the string has been initialized or not. If it has been 
-            # initialized with a previous element, then insert in the output
-            # list the current content of the string, otherwise just
-            # initialize the string with the contento of the current element.
-            # If the command is not an assignment, then just place the element
-            # in the string for a later use.
-            if "=" in element:
-                if old_string != "":
-                    outputs.append(old_string.strip())
-
-                old_string = element
-                continue
-        
-            old_string += " " + element
-        
-        outputs.append(old_string.strip())
-        return outputs
 
     def run(self) -> None:
         """ Actually runs the entire ReDEx tool """
@@ -99,7 +77,7 @@ class RemoteDockerExecution(object):
                 splitted_cmd = cmd.split()
                 command_name = splitted_cmd[0]
                 if len(splitted_cmd) > 1:
-                    command_args = self.merge_args(splitted_cmd[1:])
+                    command_args = merge_args(splitted_cmd[1:])
                     self.commands[command_name](self, *command_args)
                     continue
 

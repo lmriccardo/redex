@@ -175,3 +175,11 @@ C_EXECUTE_DESC = """Execute a command inside a running container. Default comman
     However, you can also give whatever command you want.
 """
 # ------------------------------------------------------------
+C_LOAD_NAME = "load"
+C_LOAD_CMD  = "load FILE"
+C_LOAD_DESC = "Load a script from 'FILE' into the program"
+# ------------------------------------------------------------
+C_RUN_NAME = "run"
+C_RUN_CMD  = "run"
+C_RUN_DESC = "Runs a loaded script. To load a script type 'help load'"
+# ------------------------------------------------------------
