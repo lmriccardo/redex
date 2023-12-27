@@ -2,8 +2,6 @@
 
 > **WARNING**: EDUCATION PURPOSE ONLY
 
-https://github.com/lmriccardo/redex/assets/32601287/3cf6e63a-5118-4697-b780-f845b709b9ae
-
 <video width="630" height="300" src="https://github.com/lmriccardo/redex/assets/32601287/3cf6e63a-5118-4697-b780-f845b709b9ae"></video>
 
 
