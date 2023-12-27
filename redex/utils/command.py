@@ -400,7 +400,7 @@ def execute_cmd(redex_cls, *args, **kwargs) -> None:
     command_exec_data = redex_cls.container_data.c_default['exec']
     command_exec_data["Cmd"][2] = f'{cmd}'
     
-    redex_cls.console.print(f"[*] Executing command: [yellow]'{cmd}'[/yellow]")
+    redex_cls.console.print(f"[*] Submitting command: [yellow]'{cmd}'[/yellow]")
 
     # Let's send the request to create the execution instance
     exec_id = send_request_create_exec(

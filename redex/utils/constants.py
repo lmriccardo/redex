@@ -25,8 +25,8 @@ CMD_TYPES = [ "rvshell", "upload" ]
 # The netcat command on OSX works differently from Linux.
 # For this reason we need two different version.
 REVSHELL_CLIENT_COMMAND = {
-    "linux"  : 'nc -lvp {%s}',
-    "darwin" : 'nc -l 0.0.0.0 {%s}'
+    "linux"  : 'nc -lvp %s',
+    "darwin" : 'nc -l 0.0.0.0 %s'
 }
 
 ## ------------------------------ DOCUMENTATION COMMANDS CONTSANTS ------------------------------
