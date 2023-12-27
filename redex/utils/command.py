@@ -2,6 +2,7 @@ import json
 import rich
 import base64
 import re
+import subprocess
 
 from dataclasses import dataclass
 from typing import Callable, Optional, List, Tuple
@@ -633,6 +634,29 @@ def run_cmd(redex_cls, *args, **kwargs) -> None:
 C_RUN = Command(C_RUN_NAME, C_RUN_CMD, C_RUN_DESC, func=run_cmd)
 run_cmd.__doc__ = C_RUN.desc
 
+## ------------------------- LS COMMAND ------------------------
+def ls_cmd(redex_cls, *args, **kwargs) -> None:
+    ls_options = [] if len(args) == 0 else args[0].split()
+    subprocess.run(['ls', *ls_options])
+
+
+C_LS = Command(C_LS_NAME, C_LS_CMD, C_LS_DESC, func=ls_cmd)
+ls_cmd.__doc__ = C_LS.desc
+
+## ------------------------- CAT COMMAND ------------------------
+def cat_cmd(redex_cls, *args, **kwargs) -> None:
+    if len(args) == 0:
+        redex_cls.console.print(
+            "[*] [red]cat command has a required file input[/red]"
+        )
+        raise Exception
+    
+    subprocess.run(['cat', args[0]])
+
+
+C_CAT = Command(C_CAT_NAME, C_CAT_CMD, C_CAT_DESC, func=cat_cmd)
+cat_cmd.__doc__ = C_CAT.desc
+
 
 @dataclass(frozen=True)
 class RedexCommands(object):
@@ -659,6 +683,8 @@ class RedexCommands(object):
     EXECUTE    : Command = C_EXECUTE
     LOAD       : Command = C_LOAD
     RUN        : Command = C_RUN
+    LS         : Command = C_LS
+    CAT        : Command = C_CAT
 
     def __getitem__(self, key: str) -> Command:
         """ Returns the corresponding command """

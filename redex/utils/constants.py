@@ -183,3 +183,11 @@ C_RUN_NAME = "run"
 C_RUN_CMD  = "run"
 C_RUN_DESC = "Runs a loaded script. To load a script type 'help load'"
 # ------------------------------------------------------------
+C_LS_NAME = "ls"
+C_LS_CMD  = "ls [OPTIONS]"
+C_LS_DESC = "Runs the classical 'ls' command from bash with all the options"
+# ------------------------------------------------------------
+C_CAT_NAME = "cat"
+C_CAT_CMD  = "cat FILENAME"
+C_CAT_DESC = "Runs the classical 'cat' command from bash, to read the content of the file"
+# ------------------------------------------------------------
